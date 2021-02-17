@@ -1,4 +1,3 @@
-
 description = "Kotlin SamWithReceiver Compiler Plugin"
 
 plugins {
@@ -27,6 +26,12 @@ dependencies {
 sourceSets {
     "main" { projectDefault() }
     "test" { projectDefault() }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
+    kotlinOptions {
+        freeCompilerArgs += "-Xsuppress-version-warnings"
+    }
 }
 
 publish()

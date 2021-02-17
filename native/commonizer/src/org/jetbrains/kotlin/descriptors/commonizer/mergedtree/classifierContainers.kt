@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.descriptors.commonizer.mergedtree
 
 import gnu.trove.THashMap
 import gnu.trove.THashSet
+import org.jetbrains.kotlin.descriptors.commonizer.ModulesProvider
 import org.jetbrains.kotlin.descriptors.commonizer.cir.CirEntityId
 import org.jetbrains.kotlin.descriptors.commonizer.utils.isUnderKotlinNativeSyntheticPackages
 
@@ -77,8 +78,15 @@ interface CirProvidedClassifiers {
     //fun classifier(classifierId: ClassId): Any?
 
     companion object {
-        internal val EMPTY = object : CirProvidedClassifiers {
+        val EMPTY: CirProvidedClassifiers = object : CirProvidedClassifiers {
             override fun hasClassifier(classifierId: CirEntityId) = false
         }
+
+        fun of(vararg delegates: CirProvidedClassifiers): CirProvidedClassifiers = object : CirProvidedClassifiers {
+            override fun hasClassifier(classifierId: CirEntityId): Boolean = delegates.any { it.hasClassifier(classifierId) }
+        }
+
+        fun by(modulesProvider: ModulesProvider?): CirProvidedClassifiers =
+            if (modulesProvider != null) CirProvidedClassifiersByModules(modulesProvider) else EMPTY
     }
 }

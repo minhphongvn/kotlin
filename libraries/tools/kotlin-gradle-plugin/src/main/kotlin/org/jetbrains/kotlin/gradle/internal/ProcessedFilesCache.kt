@@ -11,6 +11,8 @@ import com.google.gson.stream.JsonToken
 import com.google.gson.stream.JsonWriter
 import org.gradle.api.logging.Logger
 import java.io.File
+import java.security.MessageDigest
+import kotlin.experimental.and
 
 /**
  * Cache for preventing processing some files twice.
@@ -22,10 +24,8 @@ import java.io.File
  *
  * @param version When updating logic in `compute`, `version` should be increased to invalidate cache
  */
-// CHECK
 internal open class ProcessedFilesCache(
     val logger: Logger,
-//    val hasher: FileHasher,
     val projectDir: File,
     val targetDir: File,
     stateFileName: String,
@@ -57,7 +57,7 @@ internal open class ProcessedFilesCache(
                     }
                     json.endObject()
 
-                    result[decodeHexString(key)] = Element(src, target)
+                    result[key] = Element(src, target)
                 }
             }
         }
@@ -71,7 +71,7 @@ internal open class ProcessedFilesCache(
             json.name("items")
             json.obj {
                 byHash.forEach {
-                    json.name(it.key.toHex())
+                    json.name(it.key)
                     json.obj {
                         json.name("src").value(it.value.src)
                         json.name("target")
@@ -95,42 +95,13 @@ internal open class ProcessedFilesCache(
         endObject()
     }
 
-    fun Int.toHex(): String {
-        return toString(16)
-    }
-
-    private fun decodeHexString(hexString: String): Int {
-        return Integer.parseInt(hexString, 16)
-    }
-
-    private fun hexToByte(a: Char, b: Char): Byte = ((a.toDigit() shl 4) + b.toDigit()).toByte()
-
-    private fun Char.toDigit(): Int = Character.digit(this, 16).also { check(it != -1) }
-
-    class ByteArrayWrapper(val contents: ByteArray) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as ByteArrayWrapper
-
-            if (!contents.contentEquals(other.contents)) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            return contents.contentHashCode()
-        }
-    }
-
     private class State {
-        val byHash = mutableMapOf<Int, Element>()
+        val byHash = mutableMapOf<String, Element>()
         val byTarget = mutableMapOf<String, Element>()
 
-        operator fun get(elementHash: Int) = byHash[elementHash]
+        operator fun get(elementHash: String) = byHash[elementHash]
 
-        operator fun set(elementHash: Int, element: Element) {
+        operator fun set(elementHash: String, element: Element) {
             byHash[elementHash] = element
             val target = element.target
             if (target != null) {
@@ -180,7 +151,27 @@ internal open class ProcessedFilesCache(
         file: File,
         compute: () -> File?
     ): String? {
-        val hash = file.hashCode()
+        val md = MessageDigest.getInstance("MD5")
+        val buffer = ByteArray(4048)
+        file.inputStream().use { input ->
+            while (true) {
+                val len = input.read(buffer)
+                if (len < 0) {
+                    break
+                }
+                md.update(buffer, 0, len)
+            }
+        }
+
+        val bytes = md.digest()
+
+        val sb = StringBuilder()
+        for (i in bytes.indices) {
+            sb.append(((bytes[i] and 0xff.toByte()) + 0x100).toString(16).substring(1))
+        }
+
+        val hash = sb.toString()
+
         val old = state[hash]
 
         if (old != null) {

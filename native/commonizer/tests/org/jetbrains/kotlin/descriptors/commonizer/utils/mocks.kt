@@ -150,7 +150,7 @@ internal val MOCK_CLASSIFIERS = CirKnownClassifiers(
         override fun isExportedForwardDeclaration(classId: CirEntityId) = false
         override fun addExportedForwardDeclaration(classId: CirEntityId) = error("This method should not be called")
     },
-    dependencies = emptyMap()
+    commonDependencies = CirProvidedClassifiers.EMPTY
 )
 
 internal class MockModulesProvider private constructor(
